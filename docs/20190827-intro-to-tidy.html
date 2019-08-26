@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+  <head>
+    <title>Navigating R with the tidyverse and Rmarkdown</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Sean Hardison   Advanced Ecological Data Analysis   August 27th, 2019" />
+    <link href="libs/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link rel="stylesheet" href="libs/evsc_theme.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# Navigating R with the tidyverse and Rmarkdown
+### Sean Hardison <br /> Advanced Ecological Data Analysis <br /> August 27th, 2019
+
+---
+
+# Where it all begins: your data
+
+**Help your future self and collaborators succeed with simple guidelines for putting data into spreadsheets&lt;sup&gt;1&lt;/sup&gt;**
+
+**Be consistent**
+
+  * "Whatever you do, do it consistently"
+  * Use consistent sheet layouts, file names, variable names, missing values, and note phrases
+    * Allows for efficient analyses, batch processing, and reproducibility  
+
+.footnote[
+Broman, Karl W., and Kara H. Woo. "Data organization in spreadsheets." The American Statistician 72.1 (2018): 2-10.
+]
+
+--
+
+**Choose good names**
+
+  * Use hyphens or underscores for spaces
+  * Avoid special characters ($, @, %, &amp;, *, (, ), !, /,., etc)
+  * Keep names concise and meaningful
+    * e.g. A cell with "BotSal (PSU)" could be split into "depth", "variable", and "units" columns
+
+---
+# Where it all begins: your data
+
+**Use a single datetime format**
+
+* Typically ISO 8601 standard is easiest: "YYYY-MM-DD"
+* Pick one and stick with it
+
+.footnote[
+Broman, Karl W., and Kara H. Woo. "Data organization in spreadsheets." The American Statistician 72.1 (2018): 2-10.
+]
+
+--
+
+**No empty cells**
+
+* Empty cells should either contain an indicator of missing values (e.g. `NA`)
+  * You may think empty cells contain implied information, but this will not be obvious when you open the file in two years.
+* Let values repeat in spreadsheets: Excel ink is cheap
+
+--
+
+**Data in spreadsheets should be rectangular**
+
+* **Do not** use more than one row for variable names
+* Avoid more than one "rectangle" of data per file. Create multiple files or sheets instead.
+
+---
+# Where it all begins: your data
+
+**Spreadsheets hold your raw data**
+
+* Keep only raw or minimally processed data in spreadsheets 
+  * Data manipulations and analyses can be followed (and reproduced) with code ;) 
+
+.footnote[
+Broman, Karl W., and Kara H. Woo. "Data organization in spreadsheets." The American Statistician 72.1 (2018): 2-10.
+]
+
+--
+
+**Don't use cell highlighting to convey information**
+
+* Instead, add a column. For example, a column called "outlier" with values `TRUE` or `FALSE` to flag data
+
+--
+
+**Make backups**
+
+* Google drive
+* Version control software like Git for small data sets
+
+--
+
+**Save spreadsheets as CSV files**
+* Nonproprietary, lightweight, easy to handle with programming languages
+
+---
+# One more thing: reproducibility
+
+* With minimal effort anyone should be able to run your R script and reproduce your results
+
+--
+
+#### Good practices for reproducibility
+
+* Each data analysis project should have a unique directory structure
+  * Keep it simple: `/R`, `/data`, `/images`, ...
+
+* R project files (`.Rproj`) + the `here` R package 
+
+* Use Rmarkdown (we'll get to it)
+
+* Use version control software (we'll get to it)
+
+---
+# The Tidyverse
+
+&gt;"*An opinionated collection of R packages designed for data science. All packages share an underlying design philosophy, grammar, and data structures.*"
+
+* Includes `dplyr`, `ggplot2`, `stringr`, `lubridate`...
+
+* Developed by Hadley Wickham
+
+&lt;br /&gt;
+
+--
+
+## Why use the tidyverse?
+
+* Unified framework for data cleaning, analysis, and visualization
+
+* Provides a more intuitive R syntax
+
+  * Helps others understand your work
+
+  * Helps **you** understand your work
+
+Work smarter, not harder!
+  
+.footnote[
+[https://r4ds.had.co.nz/](R for Data Science) &lt;/br&gt;
+[https://github.com/tidyverse](Explore all tidyverse packages)
+]
+
+---
+
+# Set up for today (I)
+
+## Get the Virginia Coast Reserve End of Year Biomass data
+
+1. Download and unzip the repository here: [github.com/seanhardison1/evsc5040]()
+
+&lt;img src="images/get_data.png" width="80%" style="display: block; margin: auto;" /&gt;
+
+.footnote[
+[Learn more about the VCR End of Year Biomass Data Set](http://www.vcrlter.virginia.edu/cgi-bin/showDataset.cgi?docid=knb-lter-vcr.167)
+]
+
+---
+
+# Set up for today (II)
+
+
+1. Open the file `evsc5040.Rproj` (defaults to RStudio)
+2. Install the `here` R package
+
+   `install.packages('here')`
+   
+3. Open a new .R script and load the data set
+
+
+```r
+# load packages
+library(tidyverse)
+library(here)
+
+# import data (using the readr and here packages)
+eoyb &lt;- read_csv(here("data","EOYB_VCR.csv"))
+```
+
+---
+# Examples
+
+## Filtering with `dplyr::filter()` 
+
+`filter(data.frame, row_condition1, row_condition2,...)`
+
+Find observations where dry mass (`liveMass`) is greater than 6 g/0.625 m&lt;sup&gt;2&lt;/sup&gt; quadrat
+
+```r
+dplyr::filter(eoyb, liveMass &gt; 6)
+```
+
+Return *Spartina alterniflora* observations **and** where `liveMass &gt; 6`
+
+```r
+dplyr::filter(eoyb, liveMass &gt; 6, speciesName == "Spartina alterniflora")
+```
+
+Return observations of either *S. alterniflora* **or** *Distichlis spicata*
+
+```r
+# Using the %in% operator
+dplyr::filter(eoyb, speciesName %in% c("Spartina alterniflora", "Distichlis spicata"))
+
+# Using the | operator ('or')
+dplyr::filter(eoyb, (speciesName == "Distichlis spicata") | (speciesName == 
+    "Spartina alterniflora"))
+```
+
+---
+
+# Examples 
+
+## Selecting columns with `dplyr::select()`
+
+Select a single column
+
+```r
+dplyr::select(eoyb, speciesName)
+```
+
+Select multiple columns
+
+```r
+dplyr::select(eoyb, speciesName, liveMass)
+```
+
+Select a range of columns
+
+```r
+dplyr::select(eoyb, EOYBYear:liveMass)
+```
+
+Drop a column
+
+```r
+dplyr::select(eoyb, -collectDate)
+```
+
+---
+# Examples
+
+## Linking your workflows with pipe operators (` %&gt;% `)
+
+Filter on conditions and then select a range of columns in one step using piping
+
+```r
+eoyb_2007 &lt;- eoyb %&gt;% 
+  dplyr::filter(speciesName != "No vegetation", 
+                EOYBYear == max(EOYBYear)) %&gt;% 
+  dplyr::select(-collectDate)
+```
+
+## Use `dplyr::group_by()` with `dplyr::summarise()` to find summary statistics
+
+In 2007, what was the mean amount of live biomass within each location (`locationID`)?
+
+```r
+eoyb_2007 %&gt;% 
+  group_by(locationID) %&gt;% 
+  dplyr::summarise(mean_biomass = mean(liveMass, na.rm = T))
+```
+
+What about across years and locations (using original data)?
+
+```r
+eoyb %&gt;% 
+  group_by(EOYBYear, locationID) %&gt;% 
+  dplyr::summarise(mean_biomass = mean(liveMass, na.rm = T))
+```
+
+---
+# Examples
+
+## Adding columns with `dplyr::mutate()`
+
+Create a new column showing the absolute difference of `liveMass` and `deadMass`
+
+```r
+eoyb %&gt;% mutate(mass_dif = abs(liveMass - deadMass))
+```
+
+Create a new column where row values are conditional (one)
+
+```r
+eoyb %&gt;% mutate(live_below_dead = if_else(liveMass &lt; deadMass, 
+                                         "More live" , "More dead" ))
+```
+
+Create a new column where row values are conditional (multiple)
+
+```r
+# unique(eoyb$transect)
+eoyb %&gt;% mutate(transect_groups = if_else(transect == "A|a", 
+                                         "A" ,
+                                         if_else(transect == "B|b",
+                                                 "B", transect)))
+```
+
+---
+# A brief introduction to `stringr`
+
+* All functions start with `str_`
+
+## Examples
+
+Detect a pattern in a string
+
+```r
+string &lt;- "Welcome to EVSC5040! Make your life easier with the tidyverse"
+str_detect(string, "tidyverse")
+```
+
+```
+## [1] TRUE
+```
+
+Replace a specific pattern
+
+```r
+str_replace(string, "life", "experience")
+```
+
+```
+## [1] "Welcome to EVSC5040! Make your experience easier with the tidyverse"
+```
+
+
+.footnote[
+[Read more about stringr here](https://cran.r-project.org/web/packages/stringr/vignettes/stringr.html) &lt;/br&gt;
+[Troubleshoot your regex here](regex101.com)
+]
+---
+# More `stringr`
+
+Extract a string based on a regular expression
+
+```r
+# Match all characters (.) 0 to an unlimited number of times (*)
+str_extract(string, ".*")
+```
+
+```
+## [1] "Welcome to EVSC5040! Make your life easier with the tidyverse"
+```
+
+```r
+# Match digits (\\d) 1 to any number of times (+)
+str_extract(string, "\\d+")
+```
+
+```
+## [1] "5040"
+```
+
+Data cleaning in `eoyb` with `mutate()` and `stringr`
+
+```r
+eoyb_2007_clean &lt;- 
+  eoyb_2007 %&gt;% 
+  mutate(speciesName = 
+           str_replace(speciesName, 
+                       "^[A-Z].*\\s",
+                       paste0(str_sub(speciesName, end = 1),". ")
+                       )
+         )
+```
+
+
+.footnote[
+[Read more about stringr here](https://cran.r-project.org/web/packages/stringr/vignettes/stringr.html)
+[Troubleshoot your regex here](regex101.com)
+]
+---
+# `ggplot2`: The Grammar of Graphics
+
+Inputs: 
+  * A ggplot function (`ggplot()`) containing a `data.frame` with aesthetics (`aes()`) mapped to variables (e.g. `x`, `y`, `color`,...)
+  * A visual layer (`geom_line()`, `geom_point()`, ...)
+
+
+```r
+library(ggplot2)
+
+ggplot(data = mpg, aes(x = displ, y = hwy, color = class)) + 
+  geom_point()
+```
+
+&lt;img src="20190827-intro-to-tidy_files/figure-html/unnamed-chunk-20-1.png" style="display: block; margin: auto;" /&gt;
+
+```r
+# is the same as 
+# ggplot() + 
+#   geom_point(data = mpg, aes(x = displ, y = hwy, color = class))
+
+#is the same as 
+# mpg %&gt;% 
+  # ggplot() + 
+  # geom_point(aes(x = displ, y = hwy, color = class))
+```
+
+---
+
+# More `ggplot2`
+
+
+```r
+eoyb_skinny &lt;- eoyb_2007_clean %&gt;% filter(marshName == "Oyster", 
+                                    speciesName %in% c("S. alterniflora",
+                                                       "S. patens",
+                                                       "P. australis",
+                                                       "J. roemerianus",
+                                                       "F. spadicea"))
+
+bxplt &lt;- ggplot(data = eoyb_skinny, aes(x = speciesName, y = liveMass)) +
+  geom_boxplot()
+
+bxplt_pts &lt;- ggplot(data = eoyb_skinny, aes(x = speciesName, y = liveMass)) +
+  geom_boxplot() +
+  geom_point()
+
+bxplt_color &lt;- ggplot(data = eoyb_skinny, aes(x = speciesName, y = liveMass, 
+                               color = speciesName)) +
+  geom_boxplot()
+
+bxplt_fill &lt;- ggplot(data = eoyb_skinny, aes(x = speciesName, y = liveMass, 
+                               fill = speciesName)) +
+  geom_boxplot()
+```
+
+---
+
+# More `ggplot2`: Facets
+
+
+```r
+ggplot(data = eoyb_2007_clean, 
+       aes(x = speciesName, y = liveMass, color = speciesName)) +
+  geom_boxplot() +
+  facet_wrap(.~locationID) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.75))
+```
+
+&lt;img src="20190827-intro-to-tidy_files/figure-html/unnamed-chunk-22-1.png" style="display: block; margin: auto;" /&gt;
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();</script>
+
+<script>
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

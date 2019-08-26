@@ -1,0 +1,14 @@
+---
+title: "EVSC 5040 Presentations"
+output: html_document
+---
+
+ <!-- ADD LINKS BELOW, note, using the RMD link syntax will open the presentation in the same tab, which is annoying. Use the html with the "_blank" to fix that behavior -->
+ 
+ 
+### Lab 
+
+<a href="https://seanhardison1.github.io/evsc5040/20190827-intro-to-tidy.html" target="_blank">Good data practices and the tidyverse - August 27, 2019</a>
+
+
+
