@@ -147,7 +147,7 @@ Work smarter, not harder!
 
 ## Get the Virginia Coast Reserve End of Year Biomass data
 
-1. Download and unzip the repository here: [github.com/seanhardison1/evsc5040]()
+1. Download and unzip the repository here: [https://github.com/EVSC-5040/lecture]()
 
 ```{r, echo = F, fig.align = 'center', out.width = "80%"}
 knitr::include_graphics(file.path("images","get_data.png"))
@@ -175,7 +175,7 @@ library(tidyverse)
 library(here)
 
 # import data (using the readr and here packages)
-eoyb <- read_csv(here("data","EOYB_VCR.csv"))
+eoyb <- read_csv(here("data","EOYB_data.csv"))
 ```
 
 ---
@@ -235,27 +235,27 @@ dplyr::select(eoyb, -collectDate)
 
 ## Linking your workflows with pipe operators (` %>% `)
 
-Filter on conditions and then select a range of columns in one step using piping
+Filter on condition and then select a range of columns in one step using piping
 ```{r, eval = T, tidy = F}
-eoyb_2007 <- eoyb %>% 
-  dplyr::filter(speciesName != "No vegetation", 
-                EOYBYear == max(EOYBYear)) %>% 
-  dplyr::select(-collectDate)
+eoyb_spartina <- eoyb %>% 
+  dplyr::filter(speciesName == "Spartina alterniflora") %>% 
+  dplyr::select(-collectDate, -sortDate)
 ```
 
 ## Use `dplyr::group_by()` with `dplyr::summarise()` to find summary statistics
 
-In 2007, what was the mean amount of live biomass within each location (`locationID`)?
+In 2007, what was the mean amount of live *S. alterniflora* biomass within each location (`locationName`)?
 ```{r, eval = F, tidy = F}
-eoyb_2007 %>% 
-  group_by(locationID) %>% 
+eoyb_spartina %>%
+  filter(EOYBYear == 2007) %>% 
+  group_by(locationName) %>% 
   dplyr::summarise(mean_biomass = mean(liveMass, na.rm = T))
 ```
 
-What about across years and locations (using original data)?
+What about across years and locations?
 ```{r, eval = F, tidy = F}
-eoyb %>% 
-  group_by(EOYBYear, locationID) %>% 
+eoyb_spartina %>% 
+  group_by(EOYBYear, locationName) %>% 
   dplyr::summarise(mean_biomass = mean(liveMass, na.rm = T))
 ```
 
@@ -266,22 +266,20 @@ eoyb %>%
 
 Create a new column showing the absolute difference of `liveMass` and `deadMass`
 ```{r, eval = F, tidy = T}
-eoyb %>% mutate(mass_dif = abs(liveMass - deadMass))
+eoyb_spartina %>% mutate(mass_dif = abs(liveMass - deadMass))
 ```
 
 Create a new column where row values are conditional (one)
 ```{r, eval = F, tidy = F}
-eoyb %>% mutate(live_below_dead = if_else(liveMass < deadMass, 
-                                         "More live" , "More dead" ))
+eoyb_spartina %>% mutate(live_below_dead = if_else(liveMass < deadMass, 
+                                         "More dead" , "More live" ))
 ```
 
-Create a new column where row values are conditional (multiple)
+Create or manipulate existing row values
 ```{r, eval = F, tidy = F}
 # unique(eoyb$transect)
-eoyb %>% mutate(transect_groups = if_else(transect == "A|a", 
-                                         "A" ,
-                                         if_else(transect == "B|b",
-                                                 "B", transect)))
+eoyb %>% mutate(Transect = if_else(Transect %in% c("Hog Island North","Hog Island South"), 
+                                         "Hog Island" ,Transect))
 ```
 
 ---
@@ -299,6 +297,7 @@ str_detect(string, "tidyverse")
 
 Replace a specific pattern
 ```{r}
+#replace "life" with "experience"
 str_replace(string, "life", "experience")
 ```
 
@@ -316,17 +315,18 @@ Extract a string based on a regular expression
 str_extract(string, ".*")
 
 # Match digits (\\d) 1 to any number of times (+)
+# \\d, \\w, \\b, ... represent specific character strings (e.g. a digit, a word, and space enclosing a word)
 str_extract(string, "\\d+")
 ```
 
 Data cleaning in `eoyb` with `mutate()` and `stringr`
 ```{r}
-eoyb_2007_clean <- 
-  eoyb_2007 %>% 
+eoyb_clean <- 
+  eoyb %>% 
   mutate(speciesName = 
            str_replace(speciesName, 
                        "^[A-Z].*\\s",
-                       paste0(str_sub(speciesName, end = 1),". ")
+                       paste0(str_sub(speciesName, start = 0, end = 1),". ")
                        )
          )
 ```
@@ -364,26 +364,21 @@ ggplot(data = mpg, aes(x = displ, y = hwy, color = class)) +
 # More `ggplot2`
 
 ```{r, eval = T, results = "hide"}
-eoyb_skinny <- eoyb_2007_clean %>% filter(marshName == "Oyster", 
-                                    speciesName %in% c("S. alterniflora",
-                                                       "S. patens",
-                                                       "P. australis",
-                                                       "J. roemerianus",
-                                                       "F. spadicea"))
+hog_spartina <- eoyb_spartina %>% filter(marshName == "Hog Island South", EOYBYear == 2015)
 
-bxplt <- ggplot(data = eoyb_skinny, aes(x = speciesName, y = liveMass)) +
+bxplt <- ggplot(data = hog_spartina, aes(x = locationName, y = liveMass)) +
   geom_boxplot()
 
-bxplt_pts <- ggplot(data = eoyb_skinny, aes(x = speciesName, y = liveMass)) +
+bxplt_pts <- ggplot(data = hog_spartina, aes(x = locationName, y = liveMass)) +
   geom_boxplot() +
   geom_point()
 
-bxplt_color <- ggplot(data = eoyb_skinny, aes(x = speciesName, y = liveMass, 
-                               color = speciesName)) +
+bxplt_color <- ggplot(data = hog_spartina, aes(x = locationName, y = liveMass, 
+                               color = locationName)) +
   geom_boxplot()
 
-bxplt_fill <- ggplot(data = eoyb_skinny, aes(x = speciesName, y = liveMass, 
-                               fill = speciesName)) +
+bxplt_fill <- ggplot(data = hog_spartina, aes(x = locationName, y = liveMass, 
+                               fill = locationName)) +
   geom_boxplot()
 ```
 
@@ -391,11 +386,26 @@ bxplt_fill <- ggplot(data = eoyb_skinny, aes(x = speciesName, y = liveMass,
 
 # More `ggplot2`: Facets
 
-```{r, fig.align="center", fig.width = 6}
-ggplot(data = eoyb_2007_clean, 
-       aes(x = speciesName, y = liveMass, color = speciesName)) +
-  geom_boxplot() +
-  facet_wrap(.~locationID) +
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.75))
+```{r, fig.align="center", fig.width = 6, eval = F}
+eoyb_spartina %>% 
+  group_by(EOYBYear, marshName, locationName) %>%
+  dplyr::summarise(mean_live_mass = mean(liveMass, na.rm = T)) %>%
+  ggplot() +
+    geom_line(aes(x = EOYBYear, y = mean_live_mass, 
+                  color = locationName, group = locationName)) + 
+    facet_wrap(.~marshName, ncol = 3)
+```
+
+---
+# More `ggplot2`: Facets
+
+```{r, fig.align="center", fig.width = 6, eval = T, echo = F, message = F, warning = F}
+eoyb_spartina %>% 
+  group_by(EOYBYear, marshName, locationName) %>%
+  dplyr::summarise(mean_live_mass = mean(liveMass, na.rm = T)) %>%
+  ggplot() +
+    geom_line(aes(x = EOYBYear, y = mean_live_mass, 
+                  color = locationName, group = locationName)) + 
+    facet_wrap(.~marshName, ncol = 3)
 ```
 

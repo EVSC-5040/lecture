@@ -150,7 +150,7 @@ Work smarter, not harder!
 
 ## Get the Virginia Coast Reserve End of Year Biomass data
 
-1. Download and unzip the repository here: [github.com/seanhardison1/evsc5040]()
+1. Download and unzip the repository here: [https://github.com/EVSC-5040/lecture]()
 
 &lt;img src="images/get_data.png" width="80%" style="display: block; margin: auto;" /&gt;
 
@@ -177,7 +177,7 @@ library(tidyverse)
 library(here)
 
 # import data (using the readr and here packages)
-eoyb &lt;- read_csv(here("data","EOYB_VCR.csv"))
+eoyb &lt;- read_csv(here("data","EOYB_data.csv"))
 ```
 
 ---
@@ -245,30 +245,30 @@ dplyr::select(eoyb, -collectDate)
 
 ## Linking your workflows with pipe operators (` %&gt;% `)
 
-Filter on conditions and then select a range of columns in one step using piping
+Filter on condition and then select a range of columns in one step using piping
 
 ```r
-eoyb_2007 &lt;- eoyb %&gt;% 
-  dplyr::filter(speciesName != "No vegetation", 
-                EOYBYear == max(EOYBYear)) %&gt;% 
-  dplyr::select(-collectDate)
+eoyb_spartina &lt;- eoyb %&gt;% 
+  dplyr::filter(speciesName == "Spartina alterniflora") %&gt;% 
+  dplyr::select(-collectDate, -sortDate)
 ```
 
 ## Use `dplyr::group_by()` with `dplyr::summarise()` to find summary statistics
 
-In 2007, what was the mean amount of live biomass within each location (`locationID`)?
+In 2007, what was the mean amount of live *S. alterniflora* biomass within each location (`locationName`)?
 
 ```r
-eoyb_2007 %&gt;% 
-  group_by(locationID) %&gt;% 
+eoyb_spartina %&gt;%
+  filter(EOYBYear == 2007) %&gt;% 
+  group_by(locationName) %&gt;% 
   dplyr::summarise(mean_biomass = mean(liveMass, na.rm = T))
 ```
 
-What about across years and locations (using original data)?
+What about across years and locations?
 
 ```r
-eoyb %&gt;% 
-  group_by(EOYBYear, locationID) %&gt;% 
+eoyb_spartina %&gt;% 
+  group_by(EOYBYear, locationName) %&gt;% 
   dplyr::summarise(mean_biomass = mean(liveMass, na.rm = T))
 ```
 
@@ -280,24 +280,22 @@ eoyb %&gt;%
 Create a new column showing the absolute difference of `liveMass` and `deadMass`
 
 ```r
-eoyb %&gt;% mutate(mass_dif = abs(liveMass - deadMass))
+eoyb_spartina %&gt;% mutate(mass_dif = abs(liveMass - deadMass))
 ```
 
 Create a new column where row values are conditional (one)
 
 ```r
-eoyb %&gt;% mutate(live_below_dead = if_else(liveMass &lt; deadMass, 
-                                         "More live" , "More dead" ))
+eoyb_spartina %&gt;% mutate(live_below_dead = if_else(liveMass &lt; deadMass, 
+                                         "More dead" , "More live" ))
 ```
 
-Create a new column where row values are conditional (multiple)
+Create or manipulate existing row values
 
 ```r
 # unique(eoyb$transect)
-eoyb %&gt;% mutate(transect_groups = if_else(transect == "A|a", 
-                                         "A" ,
-                                         if_else(transect == "B|b",
-                                                 "B", transect)))
+eoyb %&gt;% mutate(Transect = if_else(Transect %in% c("Hog Island North","Hog Island South"), 
+                                         "Hog Island" ,Transect))
 ```
 
 ---
@@ -321,6 +319,7 @@ str_detect(string, "tidyverse")
 Replace a specific pattern
 
 ```r
+#replace "life" with "experience"
 str_replace(string, "life", "experience")
 ```
 
@@ -349,6 +348,7 @@ str_extract(string, ".*")
 
 ```r
 # Match digits (\\d) 1 to any number of times (+)
+# \\d, \\w, \\b, ... represent specific character strings (e.g. a digit, a word, and space enclosing a word)
 str_extract(string, "\\d+")
 ```
 
@@ -359,19 +359,19 @@ str_extract(string, "\\d+")
 Data cleaning in `eoyb` with `mutate()` and `stringr`
 
 ```r
-eoyb_2007_clean &lt;- 
-  eoyb_2007 %&gt;% 
+eoyb_clean &lt;- 
+  eoyb %&gt;% 
   mutate(speciesName = 
            str_replace(speciesName, 
                        "^[A-Z].*\\s",
-                       paste0(str_sub(speciesName, end = 1),". ")
+                       paste0(str_sub(speciesName, start = 0, end = 1),". ")
                        )
          )
 ```
 
 
 .footnote[
-[Read more about stringr here](https://cran.r-project.org/web/packages/stringr/vignettes/stringr.html)
+[Read more about stringr here](https://cran.r-project.org/web/packages/stringr/vignettes/stringr.html) &lt;/br&gt;
 [Troubleshoot your regex here](regex101.com)
 ]
 ---
@@ -408,26 +408,21 @@ ggplot(data = mpg, aes(x = displ, y = hwy, color = class)) +
 
 
 ```r
-eoyb_skinny &lt;- eoyb_2007_clean %&gt;% filter(marshName == "Oyster", 
-                                    speciesName %in% c("S. alterniflora",
-                                                       "S. patens",
-                                                       "P. australis",
-                                                       "J. roemerianus",
-                                                       "F. spadicea"))
+hog_spartina &lt;- eoyb_spartina %&gt;% filter(marshName == "Hog Island South", EOYBYear == 2015)
 
-bxplt &lt;- ggplot(data = eoyb_skinny, aes(x = speciesName, y = liveMass)) +
+bxplt &lt;- ggplot(data = hog_spartina, aes(x = locationName, y = liveMass)) +
   geom_boxplot()
 
-bxplt_pts &lt;- ggplot(data = eoyb_skinny, aes(x = speciesName, y = liveMass)) +
+bxplt_pts &lt;- ggplot(data = hog_spartina, aes(x = locationName, y = liveMass)) +
   geom_boxplot() +
   geom_point()
 
-bxplt_color &lt;- ggplot(data = eoyb_skinny, aes(x = speciesName, y = liveMass, 
-                               color = speciesName)) +
+bxplt_color &lt;- ggplot(data = hog_spartina, aes(x = locationName, y = liveMass, 
+                               color = locationName)) +
   geom_boxplot()
 
-bxplt_fill &lt;- ggplot(data = eoyb_skinny, aes(x = speciesName, y = liveMass, 
-                               fill = speciesName)) +
+bxplt_fill &lt;- ggplot(data = hog_spartina, aes(x = locationName, y = liveMass, 
+                               fill = locationName)) +
   geom_boxplot()
 ```
 
@@ -437,14 +432,19 @@ bxplt_fill &lt;- ggplot(data = eoyb_skinny, aes(x = speciesName, y = liveMass,
 
 
 ```r
-ggplot(data = eoyb_2007_clean, 
-       aes(x = speciesName, y = liveMass, color = speciesName)) +
-  geom_boxplot() +
-  facet_wrap(.~locationID) +
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.75))
+eoyb_spartina %&gt;% 
+  group_by(EOYBYear, marshName, locationName) %&gt;%
+  dplyr::summarise(mean_live_mass = mean(liveMass, na.rm = T)) %&gt;%
+  ggplot() +
+    geom_line(aes(x = EOYBYear, y = mean_live_mass, 
+                  color = locationName, group = locationName)) + 
+    facet_wrap(.~marshName, ncol = 3)
 ```
 
-&lt;img src="20190827-intro-to-tidy_files/figure-html/unnamed-chunk-22-1.png" style="display: block; margin: auto;" /&gt;
+---
+# More `ggplot2`: Facets
+
+&lt;img src="20190827-intro-to-tidy_files/figure-html/unnamed-chunk-23-1.png" style="display: block; margin: auto;" /&gt;
     </textarea>
 <style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
 <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
