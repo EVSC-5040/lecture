@@ -10,5 +10,7 @@ output: html_document
 
 <a href="https://EVSC-5040.github.io/lecture/20190827-intro-to-tidy.html" target="_blank">Good data practices and the tidyverse - August 27, 2019</a>
 
+<a href="https://EVSC-5040.github.io/lecture/20190829-getting-git.html" target="_blank">Getting git - August 29, 2019</a>
+
 
 
