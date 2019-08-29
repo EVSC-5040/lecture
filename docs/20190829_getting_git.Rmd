@@ -1,6 +1,6 @@
 ---
 title: "Getting Git"
-author: "Sean Hardison <br /> Advanced Ecological Data Analysis <br /> August 29th, 2019"
+author: "Sean Hardison and Dr. Max Castorani<br /> Advanced Ecological Data Analysis <br /> August 29th, 2019"
 output:
   xaringan::moon_reader:
     css: ["default", "libs/evsc_theme.css"]

@@ -1,6 +1,6 @@
 ---
 title: "Navigating R with the tidyverse and Rmarkdown"
-author: "Sean Hardison <br /> Advanced Ecological Data Analysis <br /> August 27th, 2019"
+author: "Sean Hardison and Dr. Max Castorani<br /> Advanced Ecological Data Analysis <br /> August 27th, 2019"
 output:
   xaringan::moon_reader:
     css: ["default", "libs/evsc_theme.css"]
