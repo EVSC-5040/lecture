@@ -1,0 +1,75 @@
+---
+title: "Data Exploration"
+output: html_document
+---
+
+## Working with data frames
+
+The following code chunks contain examples for importing and visualizing data.
+
+In the code chunk below, I first loaded my packages:
+
+1. `tidyverse`
+2. `here`
+
+Next, I imported my data set called `clams`. I then sourced `my_function.R` from my R directory. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(here)
+
+clams <- read.table(here::here("data","Clams_Zuur-et-al-2009.txt"),
+                    stringsAsFactors = FALSE, header = TRUE)
+
+source(here::here("R","my_function.R"))
+
+file.exists(here::here("data","Clams_Zuur-et-al-2009.txt"))
+```
+
+```{r data_create}
+example_data <- data.frame(x = 1:20,
+                           y = rnorm(20),
+                           group = rep(c("a","b"), each = 10))
+```
+
+```{r data_plot}
+
+plot(x = example_data$x, y = example_data$y)
+plot(y ~ x, data = example_data)
+
+```
+
+```{r data_ggplot}
+ggplot(data = example_data, aes(x = x, y = y, color = group)) +
+  geom_point() +
+  geom_line()
+
+ggplot(data = example_data, aes(x = x, y = y, group = group)) +
+  geom_point() +
+  geom_line()
+```
+
+```{r ggboxplot}
+ggplot(data = example_data, aes(x = group, y = y)) +
+  geom_boxplot() +
+  geom_point()
+```
+
+## Wedge Clam Data
+
+Zuur adds columns using the `$` syntax. I also created the same data.frame (named `log_clams`) using the `mutate()` function from `dplyr`.
+
+```{r}
+
+clams$LNAFD <- log(clams$AFD)
+clams$LNLENGTH <- log(clams$LENGTH)
+
+
+log_clams <- clams %>% 
+  mutate(LNAFD = log(AFD),
+         LNLENGTH = log(LENGTH))
+```
+
+
