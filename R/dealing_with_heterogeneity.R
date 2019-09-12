@@ -12,7 +12,7 @@ Squid <- read.csv(here::here("data/Squid_Zuur-et-al-2009.txt"), sep = "\t")
 # Convert month to a factor variable (fMONTH)
 # Remove rows with NA values using ... %>% filter(complete.cases(.))
 Squid %<>% 
-  mutate(fMONTH = factor(MONTH,  ordered = TRUE)) %>% 
+  mutate(fMONTH = factor(MONTH)) %>% 
   filter(complete.cases(.))
 
 # Fit linear model  
@@ -84,4 +84,20 @@ ggplot() +
                   fill = Model), alpha = 0.2) +
   theme_ggeffects() +
   ggtitle("OLS vs GLS") 
+
+# varIdent structure
+
+# Adding a grouping variable to the variance structure of the GLS model (identvar)
+normvar <- gls(Testisweight ~ DML * fMONTH,
+            data = Squid)
+
+fixedvar <- gls(Testisweight ~ DML * fMONTH,
+                data = Squid,
+    weights = varFixed(~DML))
+
+#NOTE: If you don't use "form" within your varIdent function it won't be taken into the function
+identvar <- gls(Testisweight ~ DML * fMONTH, data = Squid,
+    weights = varIdent(form = ~ 1 | fMONTH))
+
+anova(normvar, fixedvar, identvar)
 

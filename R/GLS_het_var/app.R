@@ -2,6 +2,7 @@ library(MASS)
 library(nlme)
 library(tidyverse)
 library(shiny)
+library(ggeffects)
 
 source(here::here("R/visualize_model_fits.R"))
 
