@@ -10,7 +10,7 @@ ui <- fluidPage(
    
    # Application title
    titlePanel("Generalized Additive Models"),
-   h4("Adjusting basis functions (k) and smoothing parameter (sp)"),
+   h4("Adjusting the number of knots (k) and smoothing parameter (sp)"),
    
    # Sidebar with a slider input for number of bins 
    sidebarLayout(
