@@ -94,7 +94,7 @@ summary(Mlme1)
 
 ```
 
-<br>
+<br> 
 
 ![](`r RandomInt`){width=400}
 
