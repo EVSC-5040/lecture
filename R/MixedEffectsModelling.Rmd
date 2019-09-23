@@ -1,0 +1,178 @@
+---
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(nlme)
+RIKZ <- read.table(here::here("data","RIKZ.txt"), stringsAsFactors = FALSE, header = TRUE)
+RIKZ$fBeach <- factor(RIKZ$Beach)
+
+
+DataStruc <- here::here("presentations/9-24-Presentation/images","DataStructure.jpg")
+Stage21 <- here::here("presentations/9-24-Presentation/images","2stage1.jpg")
+Stage22 <- here::here("presentations/9-24-Presentation/images","2stage2.jpg")
+RandomInt <- here::here("presentations/9-24-Presentation/images","RandomIntercept.jpg")
+RandomIntSlpe <- here::here("presentations/9-24-Presentation/images","RandomInterceptSlope.jpg")
+```
+
+
+<center>
+## Mixed Effects Modelling {.tabset .tabset-fade}
+
+![](`r DataStruc`){width=400}
+
+<left>
+
+### 2-Stage Analysis
+
+```{r, echo=T}
+Beta <- vector(length = 9)
+for (i in 1:9)
+{
+  Mi <- summary(lm(Richness ~ NAP, subset = (Beach==i), data=RIKZ))
+  Beta[i] <- Mi$coefficients[2,1]
+}
+
+fExposure9 <- factor(c(0, 0, 1, 1, 0, 1, 1, 0, 0))  # 1: Exposure == 11
+                                                    # 0: Exposure != 11
+Beta
+
+tmp2 <- lm(Beta ~ fExposure9)
+
+anova(tmp2)
+```
+
+Since the p-value for Exposure in the model for our slopes is 0.2268, we fail to find a significant exposure effect on the slopes.
+
+<br>
+
+![](`r Stage21`){width=400} <br>
+![](`r Stage22`){width=400}
+
+<br>
+
+<font color="green"> Benefit <font color="black">
+<br> 1. Very simple application of standard linear regression, yielding potentially useful results.
+
+<br>
+
+<font color="red"> Drawback <font color="black">
+<br> 1. All of the data is being summarized in the second step by a single parameter.
+<br> 2. We are analzing our regression parameters, meaning our understanding of the data is indirect.
+<br> 3. There's no penalty (as is the case with Radj or AIC) for low sample sizes.
+
+<br><br><br><br><br>
+
+### Random Intercept Model
+
+```{r, echo=T}
+Mlme1 <- lme(Richness ~ NAP, random = ~1 | fBeach, data=RIKZ)
+
+# Here, random = ~1 | fBeach specifies a random intercept model based on the nominal variable fBeach.
+
+F0 <- fitted(Mlme1, level=0) # Fitted values for population
+F1 <- fitted(Mlme1, level=1) # Fitted values for the within-beach subpopulations
+I <- order(RIKZ$NAP); NAPs <- sort(RIKZ$NAP)
+
+summary(Mlme1)
+
+# In using beach as a "random effect," we can find the variance d for our intercepts in the "Random effects:" section of the summary statistics.
+
+plot(NAPs, F0[I], lwd = 4, type = "l", ylim = c(0,22), ylab = "Richness", xlab = "NAP")
+
+for (i in 1:9)
+{
+  x1 <- RIKZ$NAP[RIKZ$Beach == i]
+  y1 <- F1[RIKZ$Beach == i]
+  K <- order(x1)
+  lines(sort(x1), y1[K])
+}
+
+summary(Mlme1)
+
+```
+
+<br>
+
+![](`r RandomInt`){width=400}
+
+<br>
+
+Since the variance for the random intercept is <font color="blue">2.94<font color="black">,<br>
+and the variance for the residuals is <font color="blue">3.06<font color="black">,<br>
+we can use these values to calculate the <b>induced correlation:</b>
+
+2.94<sup>2</sup> / (2.94<sup>2</sup> + 3.06<sup>2</sup>) = 0.48
+
+This is the correlation between observations from the same beach. We can use this value to calculate the design effect (1+(n-1)*p, where p = induced correlation), which helps us know whether 
+
+<br><br><br><br><br>
+
+
+
+### Random Intercept and Slope Model
+
+```{r echo=FALSE, message=F, warning = F, warnings = F}
+Mlme2 <- lme(Richness ~NAP, random = ~1 + NAP | fBeach, data = RIKZ)
+
+F0 <- fitted(Mlme2, level=0)
+F1 <- fitted(Mlme2, level=1)
+I <- order(RIKZ$NAP); NAPs <- sort(RIKZ$NAP)
+plot(NAPs, F0[I], lwd = 4, type = "l", ylim = c(0,22), ylab = "Richness", xlab = "NAP")
+
+for (i in 1:9)
+{
+  x1 <- RIKZ$NAP[RIKZ$Beach == i]
+  y1 <- F1[RIKZ$Beach == i]
+  K <- order(x1)
+  lines(sort(x1), y1[K])
+}
+
+summary(Mlme2)
+
+```
+
+<br>
+
+![](`r RandomIntSlpe`){width=400}
+
+<br>
+
+### Random Effects Model
+
+```{r, echo=FALSE}
+Mlme3 <- lme(Richness ~ 1, random = ~1 | fBeach, data = RIKZ)
+summary(Mlme3)
+```
+
+### Marginal Model
+
+```{r, echo=FALSE}
+M.mixed <- lme(Richness ~ NAP, random = ~1 | fBeach, metho = "REML", data=RIKZ)
+M.gls <- gls(Richness ~ NAP, method = "REML", correlation = corCompSymm(form = ~1 | fBeach),
+             data = RIKZ)
+
+summary(M.gls$modelStruct)
+```
+
+### ML and REML
+
+```{r, echo=FALSE}
+RIKZ$fExp <- RIKZ$Exposure
+RIKZ$fExp[RIKZ$Exposure == 8] <- 10
+RIKZ$fExp <- factor(RIKZ$fExp, levels = c(10,11))
+M0.ML <- lme(Richness ~ NAP, data = RIKZ, random = ~1 | fBeach, method = "ML")
+M0.REML <- lme(Richness ~ NAP, random = ~1 | fBeach, method = "REML", data = RIKZ)
+M1.ML <- lme(Richness ~ NAP + fExp, data = RIKZ, random = ~1 | fBeach, method = "ML")
+M1.REML <- lme(Richness ~ NAP + fExp, random = ~1 | fBeach, method = "REML", data = RIKZ)
+
+summary(M0.ML)
+summary(M0.REML)
+summary(M1.ML)
+summary(M1.REML)
+```
+
+
+
