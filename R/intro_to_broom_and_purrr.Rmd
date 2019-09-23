@@ -36,8 +36,10 @@ Using the `augment` function from the package `broom`, we can easily return mode
 ```{r}
 fitted_lr_mod <- lr_mod %>% augment()
 
-#View model fit
+#View model fit 
 str(fitted_lr_mod)
+
+broom::tidy(lr_mod)
 ```
 
 We can now pass our fitted model output to `ggplot2` for visualization.
@@ -45,8 +47,8 @@ We can now pass our fitted model output to `ggplot2` for visualization.
 ```{r}
 lr_mod_plot <- 
   ggplot(data = fitted_lr_mod) +
-  geom_line(aes(x = NAP, y = .fitted)) +
-  geom_point(aes(x = NAP, y = Richness))
+    geom_line(aes(x = NAP, y = .fitted)) +
+    geom_point(aes(x = NAP, y = Richness))
 
 lr_mod_plot
 ```
@@ -63,7 +65,13 @@ lr_mod_plot +
 
 Q1: Combine the original `RIKZ` data set with our fitted output in `ggplot2` to color points by sampling site (i.e. `fBeach`)
 ```{r}
-
+ggplot(data = fitted_lr_mod) +
+  geom_line(aes(x = NAP, y = .fitted)) +
+  geom_point(data = RIKZ, aes(x = NAP, 
+                              y = Richness,
+                              alpha = NAP,
+                              size = Richness,
+                              color = fBeach))
 ```
 
 #### Mixed effects models
@@ -92,13 +100,25 @@ Plot the data using `ggplot2`.
 
 ```{r}
 ggplot(data = Mlme1_fitted) +
-  geom_line(aes(x = NAP, y = .fitted, group = fBeach, color = fBeach)) +
-  geom_point(aes(x = NAP, y = Richness, group = fBeach, color = fBeach))
+  geom_line(aes(x = NAP, y = .fitted, color = fBeach)) + 
+  geom_point(aes(x = NAP, y = Richness, color = fBeach)) +
+  geom_line(aes(x = NAP, y = .fixed))
 ```
 
 Q2: Use `broom` and `ggplot2` functions to replicate and visualize the random intercept and slope model first given on pg. 109 of Zuur et al. 2009. 
 
 ```{r}
+
+Mlme2 <- lme(Richness ~ NAP, random = ~1 + NAP|fBeach, data = RIKZ)
+
+broom.mixed::tidy(Mlme2)
+
+Mlme2_fitted <- broom.mixed::augment(Mlme2)
+
+ggplot(data = Mlme2_fitted) +
+  geom_line(aes(x = NAP, y = .fitted, color = fBeach)) + 
+  geom_point(aes(x = NAP, y = Richness, color = fBeach)) +
+  geom_line(aes(x = NAP, y = .fixed))
 
 ```
 
@@ -111,6 +131,19 @@ Q3: Repeat the above exercise but for the random effects model specified on pg. 
 #### Tidy vectorization of model fitting using purrr**
 
 ```{r}
+#Create list with three elements
+my_list <- 
+  list(a = rnorm(30),
+     b = rnorm(30),
+     c = rnorm(30))
+
+#apply functions to each element
+lapply(my_list, mean)
+
+#Or calculate mean for each element using for loop
+for (i in 1:length(my_list)){
+  print(mean(my_list[[i]]))
+}
 
 #linear regression example
 
