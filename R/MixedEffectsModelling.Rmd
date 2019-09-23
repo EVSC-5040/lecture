@@ -100,6 +100,10 @@ summary(Mlme1)
 
 <br>
 
+Suppose we want to ask the following question: <b>What is the correlation between two observations from the same beach, and from different beaches?</b>
+
+<br>
+
 Since the variance for the random intercept is <font color="blue">2.94<font color="black">,<br>
 and the variance for the residuals is <font color="blue">3.06<font color="black">,<br>
 we can use these values to calculate the <b>induced correlation:</b>
