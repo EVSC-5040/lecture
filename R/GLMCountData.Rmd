@@ -1,0 +1,374 @@
+---
+runtime: shiny
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+NegativeBinomial <- here::here("presentations/10-10-Presentation/images","NegativeBinomial.jpg")
+Gamma <- here::here("presentations/10-10-Presentation/images","Gamma.jpg")
+Poisson <- here::here("presentations/10-10-Presentation/images","Poisson.jpg")
+
+MLE1 <- here::here("presentations/10-10-Presentation/images","MLE1.jpg")
+MLE2 <- here::here("presentations/10-10-Presentation/images","MLE2.jpg")
+MLE3 <- here::here("presentations/10-10-Presentation/images","MLE3.jpg")
+MLE4 <- here::here("presentations/10-10-Presentation/images","MLE4.jpg")
+MLE5 <- here::here("presentations/10-10-Presentation/images","MLE5.jpg")
+
+ExplainedDeviance <- here::here("presentations/10-10-Presentation/images","ExplainedDeviance.jpg")
+ResidualDeviance <- here::here("presentations/10-10-Presentation/images","ResidualDeviance.jpg")
+
+data <- readr::read_delim(here::here("data/RoadKills.txt"), delim = "\t")
+
+
+library(ggplot2)
+
+```
+
+<center>
+## Generalized Linear Models for Count Data {.tabset .tabset-fade}
+
+<br>
+
+### Negative Binomial Distribution
+
+![](https://thumbs.gfycat.com/UntriedRawDrafthorse-size_restricted.gif)
+
+<br>
+
+Zuur describes the negative binomial distribution as a combination of the <b>Poisson distribution</b> and the <b>gamma distribution</b>. It is for discrete, non-negative data only.
+
+<br>
+<font color="blue">
+More specifically, in the context of GLMs, we assume that:<br>
+1) Our Ys are Poisson distributed, and <br>
+2) The mean (estimated as a function of covariates) follows a gamma distribution <br>
+<font color="black">
+<br>
+
+We first saw the negative binomial distribution last week as a solution to problems fitting a Poission GLM. This is because in the Poission model <b>our variance was larger than our mean</b>.
+
+<br>
+
+The reason for why the negative binomial distribution will help is because its variance has an additional parameter, k, attached to it. An alternate form of the variance formula gives <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>&#x3B1;</mi></math>, which is called the <b>dispersion parameter</b>.
+
+<br>
+
+![](`r NegativeBinomial`){width=500}
+
+<br>where<br>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>E</mi><mo>(</mo><mi>Y</mi><mo>)</mo><mo>&#xA0;</mo><mo>=</mo><mo>&#xA0;</mo><mi>&#x3BC;</mi></math> <br><br>
+<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>V</mi><mi>a</mi><mi>r</mi><mo>(</mo><mi>Y</mi><mo>)</mo><mo>&#x2009;</mo><mo>&#xA0;</mo><mo>=</mo><mo>&#xA0;</mo><mi>&#x3BC;</mi><mo>&#xA0;</mo><mo>+</mo><mo>&#xA0;</mo><mfrac><msup><mi>&#x3BC;</mi><mn>2</mn></msup><mi>k</mi></mfrac><mo>&#xA0;</mo><mo>=</mo><mo>&#xA0;</mo><mi>&#x3BC;</mi><mo>&#xA0;</mo><mo>+</mo><mo>&#xA0;</mo><mi>&#x3B1;</mi><mo>&#xD7;</mo><msup><mi>&#x3BC;</mi><mn>2</mn></msup></math> <br>
+
+<br><br><br>
+
+```{r echo=FALSE, message=F, warning = F, warnings = F}
+library(colourpicker)
+fluidPage(
+fluidRow(
+    column(4,align="center",numericInput("D2", "mu", value = 20, min = 10, max = 80)),
+    column(4,align="center",numericInput("D3", "k", value = 1, min = 0, max = 60)),
+    column(4,align="center",numericInput("D1", "N", value = 100, min = 20, max = 100))
+
+  )
+)
+```
+
+
+```{r echo=FALSE, message=F, warning = F, warnings = F}
+fluidPage(
+fluidRow(column(6,
+renderPlot({
+  N <- input$D1
+  y <- 1:100
+  mu <- input$D2
+  k <- input$D3
+  prob <- ((factorial(y+k-1)/(factorial(k-1)*factorial(y)))*(k/(mu+k))^k*(1-k/(mu+k))^y)
+  ggplot() + geom_point(aes(x=y, y=prob)) + geom_line(aes(x=y, y=prob)) + 
+    ggtitle("Negative Binomial")
+  
+}, width=400, height=400)
+),
+column(6,
+renderPlot({
+  N <- input$D1
+  y <- 0:N
+  mu <- input$D2
+  prob <- mu^y*exp(1)^(-1*mu)/(factorial(y))
+  ggplot() + geom_point(aes(x=y, y=prob)) + geom_line(aes(x=y, y=prob)) + 
+    ggtitle("Poisson")
+
+}, width=400, height=400)
+)
+)
+)
+```
+
+<br>
+
+When <b>k=0</b>, since the formula simplifies to <b>1/y</b>. <br>
+When <b>k=1</b>, the formula simplifies to <b>the geometric distribution</b><br>
+When <b>k <math xmlns="http://www.w3.org/1998/Math/MathML"><mo>&#x2248;</mo><mo>&#x221E;</mo></math></b>, the formula simplifies to <b>the Poisson distribution</b>
+
+<br><br>
+
+In a negative binomial GLM, k is estimated for the model. We use the negative binomial distribution when we have over-dispersed count data since we are now able to model the over-dispersion and not assume that the variance and mean are equal to one another. However, 
+
+<br><br>
+
+So why not just use negative binomial even if the Pearson dispersion statistic is close to 1?
+<br>
+Poisson in general is easier, and it would be innapropriate to introduce the parameter k simply because we violate the rule that our model should be highly parsimonious (as simple as possible).
+
+
+<br>
+
+### Gamma Distribution
+
+The biggest difference one should know between the gamma distribution and the negative binomial distribution is that the gamma distribution can be used for <b>a continuous response variable</b>, whereas the negative binomial distribution can be used for <b>a discrete response variable</b>. In addition, whereas the negative binomial distribution can take on a value of 0, the gamma distribution can only take on values greater than 0.
+
+![](`r Gamma`){width=500}
+
+<br>
+
+Again, we have a parameter that allows us to control the variance:<br>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>E</mi><mo>(</mo><mi>Y</mi><mo>)</mo><mo>&#xA0;</mo><mo>=</mo><mo>&#xA0;</mo><mi>&#x3BC;</mi></math> <br>
+<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>V</mi><mi>a</mi><mi>r</mi><mo>(</mo><mi>Y</mi><mo>)</mo><mo>&#x2009;</mo><mo>=</mo><mo>&#xA0;</mo><mfrac><msup><mi>&#x3BC;</mi><mn>2</mn></msup><mi>&#x3BD;</mi></mfrac></math>
+
+<br>
+
+Like before, we can find a relationship between the canonical distribution used in these scenarios (i.e., the normal distribution for continuous data) and this distribution when we adjust for the variance-related parameter.
+
+```{r echo=FALSE, message=F, warning = F, warnings = F}
+library(colourpicker)
+fluidPage(
+fluidRow(
+    column(6,align="center",numericInput("E2", "mu", value = 20, min = 10, max = 80)),
+    column(6,align="center",numericInput("E3", "v", value = 1, min = 0, max = 20))
+  )
+)
+```
+
+
+```{r echo=FALSE, message=F, warning = F, warnings = F}
+fluidPage(
+fluidRow(column(6,
+renderPlot({
+  y <- 0:100
+  mu <- input$E2
+  v <- input$E3 
+  prob <- 1/(factorial(v-1))*((v/mu)^v)*y^(v-1)*exp(1)^((y*v)/mu)
+  ggplot() + geom_point(aes(x=y, y=prob)) + geom_line(aes(x=y, y=prob)) + 
+    ggtitle("Gamma")
+  
+}, width=400, height=400)
+),
+column(6,
+renderPlot({
+  
+  y <- 0:100
+  mu <- input$E2
+  prob <- dnorm(y, mean=mu, sd=1)
+  ggplot() + geom_point(aes(x=y, y=prob)) + geom_line(aes(x=y, y=prob)) + 
+    ggtitle("Normal")
+
+}, width=400, height=400)
+)
+)
+)
+```
+
+<br> 
+
+... But it's less clear how the two are related. <br>
+
+Remember, you want to find a distribution that works for you, so understanding properties of your data (e.g., continuous, greater than 0, right-skewed, etc.) helps narrow down your choices.
+
+<br><br><br><br><br>
+
+
+
+### Poission GLM (Part 1)
+
+<b>The three steps to a GLM:</b> <br>
+1) Define distribution of response variable Y. <br>
+2) Define your function of explanatory variables (the systematic part). <br>
+3) Define the link function between the mean and the systematic part.
+
+<br><br>
+
+Since we're looking at count data, the use of the normal distribution (with an identity link) will often show heterogeneity.
+
+<br><br>
+
+<b>The Poisson GLM:</b> <br>
+1) <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>Y</mi><mi>i</mi></msub><mo>&#xA0;</mo><mo>~</mo><mo>&#xA0;</mo><mi>P</mi><mi>o</mi><mi>i</mi><mi>s</mi><mi>s</mi><mi>o</mi><mi>n</mi><mo>(</mo><msub><mi>&#x3BC;</mi><mi>i</mi></msub><mo>)</mo></math>. <br>
+2) <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>&#x3B7;</mi><mo>(</mo><msub><mi>X</mi><mrow><mi>i</mi><mn>1</mn></mrow></msub><mo>&#xA0;</mo><mo>,</mo><mo>&#xA0;</mo><mo>.</mo><mo>.</mo><mo>.</mo><mo>&#xA0;</mo><mo>,</mo><mo>&#xA0;</mo><msub><mi>X</mi><mrow><mi>i</mi><mi>q</mi></mrow></msub><mo>,</mo><mo>)</mo><mo>&#xA0;</mo><mo>=</mo><mo>&#xA0;</mo><mi>&#x3B1;</mi><mo>&#xA0;</mo><mo>+</mo><mo>&#xA0;</mo><msub><mi>X</mi><mrow><mi>i</mi><mn>1</mn></mrow></msub><msub><mi>&#x3B2;</mi><mrow><mi>i</mi><mn>1</mn></mrow></msub><mo>&#xA0;</mo><mo>+</mo><mo>&#xA0;</mo><mo>.</mo><mo>.</mo><mo>.</mo><mo>&#xA0;</mo><mo>+</mo><mo>&#xA0;</mo><mo>&#xA0;</mo><msub><mi>X</mi><mrow><mi>i</mi><mi>q</mi></mrow></msub><msub><mi>&#x3B2;</mi><mrow><mi>i</mi><mi>q</mi></mrow></msub></math>. <br>
+3) <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>&#x3BC;</mi><mi>i</mi></msub><mo>&#xA0;</mo><mo>=</mo><mo>&#xA0;</mo><msup><mi>e</mi><mrow><mi>&#x3B7;</mi><mo>(</mo><msub><mi>X</mi><mrow><mi>i</mi><mn>1</mn></mrow></msub><mo>&#xA0;</mo><mo>,</mo><mo>&#xA0;</mo><mo>.</mo><mo>.</mo><mo>.</mo><mo>&#xA0;</mo><mo>,</mo><mo>&#xA0;</mo><msub><mi>X</mi><mrow><mi>i</mi><mi>q</mi></mrow></msub><mo>,</mo><mo>)</mo></mrow></msup><mo>&#xA0;</mo><mo>=</mo><mo>&#xA0;</mo><msup><mi>e</mi><mrow><mi>&#x3B1;</mi><mo>&#xA0;</mo><mo>+</mo><mo>&#xA0;</mo><msub><mi>X</mi><mrow><mi>i</mi><mn>1</mn></mrow></msub><msub><mi>&#x3B2;</mi><mrow><mi>i</mi><mn>1</mn></mrow></msub><mo>&#xA0;</mo><mo>+</mo><mo>&#xA0;</mo><mo>.</mo><mo>.</mo><mo>.</mo><mo>&#xA0;</mo><mo>+</mo><mo>&#xA0;</mo><mo>&#xA0;</mo><msub><mi>X</mi><mrow><mi>i</mi><mi>q</mi></mrow></msub><msub><mi>&#x3B2;</mi><mrow><mi>i</mi><mi>q</mi></mrow></msub></mrow></msup></math>.
+<br><br><br>
+
+<b>Why do we use the logarithmic link?</b><br>
+We need all of our fitted values to be positive. In addition, it becomes easy to add offset variables (such as geographic size) due to the properties of logarithms.
+
+<br><br>
+
+![](`r Poisson`){width=500}
+
+<br>
+It's also interesting to note how the shape of the Poisson curves changes from small skewed curves to wide symmetric curves as we go up the covariate values.
+
+```{r echo=FALSE, message=F, warning = F, warnings = F}
+library(colourpicker)
+fluidPage(
+fluidRow(
+    column(12,align="center",sliderInput("glmmean", "mu", min = 1, max =100, value=1))
+  )
+)
+```
+
+
+```{r echo=FALSE, message=F, warning = F, warnings = F}
+library(plotly)
+
+fluidPage(
+fluidRow(
+column(12,
+renderPlotly({
+  
+  mu <- input$glmmean
+  y <- 1:100
+  y2 <- exp(1)^(mu/(100/log(100)))
+  prob <- y2^y*exp(1)^(-1*y2)/(factorial(y))
+  
+  
+  ggplot() + geom_line(aes(x = y, y = gamdist), color="blue")
+  
+  mlepoint1 <- prob[which(prob == max(prob))]
+
+  plot_ly(mtcars, z = prob, x = y, y = mu) %>%
+    add_markers() %>%
+    layout(scene = list(xaxis = list(title = 'y'),
+                        yaxis = list(title = 'Covariate'),
+                        zaxis = list(title = 'Pr(Y=y)')),
+           width = 800, height = 500) %>% 
+    add_trace(z = 0, x = exp(1)^(y/(100/log(100))), y = y, mode = 'lines') %>% 
+    add_trace(z = mlepoint1, x = y2, y = mu) %>% 
+    add_trace(z = 0, x = rev(data$TOT.N), y = 2*1:nrow(data), size=1)
+
+
+
+
+
+
+
+
+})
+)
+)
+)
+```
+
+  
+<br><br>
+<br><br>
+<br><br>
+
+<u>How do we estimate our regression parameters?</u><br>
+<b>Maximum likelihood estimator!</b><br><br>
+A brief review of the steps:<br><br>
+1) Define the likelihood function for joint probability of observations (assuming they're independent):<br><br>
+![](`r MLE1`){width=500} <br>
+![](`r MLE2`){width=500} <br>
+<br><br>
+2) Take the logarithm to simplify the math:<br>
+![](`r MLE3`){width=500} <br>
+<br><br>
+3) And find the maximum by taking the derivative:<br>
+![](`r MLE4`){width=500} <br>
+![](`r MLE5`){width=500} <br>
+
+
+<br><br><br><br><br><br><br><br><br><br>
+
+### Poission GLM (Part 2)
+
+We will now look at the RoadKills dataset. <br>
+
+```{r echo=FALSE, message=F, warning = F, warnings = F}
+data <- readr::read_delim(("~/Documents/git/EVSC5040/lecture/data/RoadKills.txt"), delim = "\t")
+ggplot(data) + geom_point(aes(x=D.PARK, y=TOT.N)) + ylab("Road kills")
+
+```
+
+<br>
+
+We first note that we are estimating <b>count data</b>, and that there seems to be a <b>non-linear, perhaps exponential, relationship between roadkills and D.PARK</b> (and that the variation is larger for larger values of roadkills). <br>
+From these observations, we can hypothesize that a Poisson GLM may be appropriate.<br><br><br>
+
+
+<b>The Poisson GLM:</b> <br>
+1) <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>Y</mi><mi>i</mi></msub><mo>&#xA0;</mo><mo>~</mo><mo>&#xA0;</mo><mi>P</mi><mi>o</mi><mi>i</mi><mi>s</mi><mi>s</mi><mi>o</mi><mi>n</mi><mo>(</mo><msub><mi>&#x3BC;</mi><mi>i</mi></msub><mo>)</mo></math>. <br>
+2) <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>&#x3B7;</mi><mo>(</mo><mi>D</mi><mo>.</mo><mi>P</mi><mi>A</mi><mi>R</mi><msub><mi>K</mi><mi>i</mi></msub><mo>)</mo><mo>&#xA0;</mo><mo>=</mo><mo>&#xA0;</mo><mi>&#x3B1;</mi><mo>&#xA0;</mo><mo>+</mo><mo>&#xA0;</mo><mi>D</mi><mo>.</mo><mi>P</mi><mi>A</mi><mi>R</mi><msub><mi>K</mi><mi>i</mi></msub><mo>&#xD7;</mo><mi>&#x3B2;</mi></math>. <br>
+3) We will use a logarithm link.
+<br><br><br>
+
+<u>R Code</u>
+
+```{r}
+M1 <- glm(TOT.N ~ D.PARK, family = poisson, data = data)
+summary(M1)
+```
+<br>
+
+We can find the estimated intercept and slope:<br>
+Intercept: 4.31<br>
+Slope: -0.00011<br><br>
+
+We will now move onto measuring deviance. <br><br>
+
+Since we don't have an <math xmlns="http://www.w3.org/1998/Math/MathML"><msup><mi>R</mi><mn>2</mn></msup></math> value, the closest thing we can use is the <b>explained deviance</b>, defined as follows:<br><br>
+
+![](`r ExplainedDeviance`){width=500} <br>
+
+Where:<br>
+* Null deviance = residual deviance in the model that only contains an intercept (least acceptable model) <br>
+* Residual deviance = Twice the difference between the log likelihood of a model that provides a perfect fit (the saturated model) and the model under study. <br>
+
+![](`r ResidualDeviance`){width=500} <br><br>
+
+We read the explained deviance the following way: "The explanatory variable distance to the park explains 63.51% of the variation in road kills." <br><br>
+
+<u>We will not plot our model's fitted values (using `predict`)</u>:<br>
+
+```{r}
+MyData <- data.frame(D.PARK = seq(from = 0, to = 25000, by = 1000))
+G <- predict(M1, newdata = MyData, type = "link", se = TRUE)
+F <- exp(G$fit)
+
+FSEUP <- exp(G$fit + 1.96 * G$se.fit)
+FSELOW <- exp(G$fit - 1.96 * G$se.fit)
+
+ggplot() + geom_point(aes(x=data$D.PARK, y=data$TOT.N)) + 
+  geom_line(aes(x = MyData$D.PARK, y = F), color="blue") +
+  geom_line(aes(x = MyData$D.PARK, y = FSEUP), color="red", linetype="dashed") +
+  geom_line(aes(x = MyData$D.PARK, y = FSELOW), color="red", linetype="dashed") + 
+  ylab("Road kills") +
+  xlab("Distance to park")
+```
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+
+

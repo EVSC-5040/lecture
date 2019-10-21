@@ -1,0 +1,382 @@
+---
+title: ""
+runtime: shiny
+output: html_document
+font: Helvetica
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(magrittr)
+library(tidyverse)
+library(nlme)
+library(broom.mixed)
+library(ggplot2)
+
+RIKZ <- readr::read_delim(here::here("data/RIKZ.txt"), delim = "\t") %>% 
+  mutate(fBeach = factor(Beach))
+RIKZ$fBeach <- factor(RIKZ$Beach)
+
+
+RandomInterceptModel <- here::here("presentations/9-24-Presentation/images",
+                                   "RandomInterceptModel.jpg")
+RandomInterceptModelAssumptions <- here::here("presentations/9-24-Presentation/images",
+                                   "RandomInterceptModelAssumptions.jpg")
+RandomInterceptModelVar <- here::here("presentations/9-24-Presentation/images",
+                                   "RandomInterceptModelVar.jpg")
+RandomInterceptModelVar2 <- here::here("presentations/9-24-Presentation/images",
+                                   "RandomInterceptModelVar2.jpg")
+RandomInterceptModelRes1 <- here::here("presentations/9-24-Presentation/images",
+                                   "RandomInterceptModelRes1.jpg")
+RandomInterceptModelRes2 <- here::here("presentations/9-24-Presentation/images",
+                                   "RandomInterceptModelRes2.jpg")
+
+```
+
+<center>
+
+## Mixed Effects Modelling {.tabset .tabset-fade}
+
+<br>
+
+### Random Intercept Model
+
+Suppose we want to ask the following question: <br><b>What is the correlation between two observations from the same beach, and from different beaches?</b>
+
+![](`r RandomInterceptModel`){width=500}
+
+<br><br>
+To do this, we simply need to calculate the <b>variance</b> of our model.
+<br>
+Let's first review the assumptions of our model.
+<br>
+
+![](`r RandomInterceptModelAssumptions`){width=350}
+
+<br><br>
+
+Using the independence assumption, we can easily calculate the variance.
+
+![](`r RandomInterceptModelVar`){width=500}
+
+<br><br>
+
+Manually calculating this, we get:
+
+![](`r RandomInterceptModelVar2`){width=500}
+
+<br><br>
+
+This matrix represents our variance and covariance values.
+
+![](`r RandomInterceptModelRes1`){width=500}
+
+<br><br>
+
+And from there we can calculate the <b>correlation</b> value.
+
+![](`r RandomInterceptModelRes2`){width=500}
+
+<br><br>
+
+We can use this value to calculate the <b>design effect</b>, which helps us know whether or not our standard errors are precise (by checking the independence of our results and calculating the <b>effective sample size</b>). Since the variance for the random intercept is <font color="blue">2.94<font color="black">,
+and the variance for the residuals is <font color="blue">3.06<font color="black">,
+we can use these values to calculate the <b>induced correlation:</b>
+
+2.94<sup>2</sup> / (2.94<sup>2</sup> + 3.06<sup>2</sup>) = 0.48
+
+This is the correlation between observations from the same beach. We can use this value to calculate the design effect (1+(n-1)*p, where p = induced correlation), which helps us check if our standard errors will be skewed.
+
+<br><br><br><br><br><br><br><br><br><br>
+
+```{r echo=FALSE, message=F, warning = F, warnings = F}
+RandomSlopeModel <- here::here("presentations/9-24-Presentation/images",
+                                   "RandomSlopeModel.jpg")
+RandomSlopeModelAssumptions <- here::here("presentations/9-24-Presentation/images",
+                                   "RandomSlopeModelAssumptions.jpg")
+RandomSlopeModelVar <- here::here("presentations/9-24-Presentation/images",
+                                   "RandomSlopeModelVar.jpg")
+RandomSlopeModelVar2 <- here::here("presentations/9-24-Presentation/images",
+                                   "RandomSlopeModelVar2.jpg")
+RandomSlopeModelVar3 <- here::here("presentations/9-24-Presentation/images",
+                                   "RandomSlopeModelVar3.jpg")
+RandomSlopeModelRes1 <- here::here("presentations/9-24-Presentation/images",
+                                   "RandomSlopeModelVar4.jpg")
+RandomSlopeVarCalc1 <- here::here("presentations/9-24-Presentation/images",
+                                   "RandomSlopeVarCalc1.jpg")
+RandomSlopeVarCalc2 <- here::here("presentations/9-24-Presentation/images",
+                                   "RandomSlopeVarCalc2.jpg")
+RandomSlopeVarCalc3 <- here::here("presentations/9-24-Presentation/images",
+                                   "RandomSlopeVarCalc3.jpg")
+```
+
+### Random Intercept and Slope Model
+
+Suppose we want to ask the following question: <br><b>What is the correlation between two observations from the same beach, and from different beaches?</b>
+
+![](`r RandomSlopeModel`){width=500}
+
+<br><br>
+To do this, we need to calculate the <b>variance</b> of our model.
+<br>
+Let's review the assumptions of our model.
+<br>
+
+![](`r RandomSlopeModelAssumptions`){width=350}
+
+<br><br>
+
+Using the independence assumption again, we calculate the variance.
+
+![](`r RandomSlopeVarCalc1`){width=550}
+![](`r RandomSlopeVarCalc2`){width=550}
+
+<br><br>
+Let's compare our results for variance with the textbook:
+
+![](`r RandomSlopeVarCalc3`){width=550}
+
+<br><br>
+
+Which translates into:
+
+![](`r RandomSlopeModelVar`){width=550}
+
+<br><br>
+
+where, for the following random variables,
+
+![](`r RandomSlopeModelVar2`){width=200}
+
+the following is true:
+
+![](`r RandomSlopeModelVar3`){width=600}
+
+<br><br>
+
+This gives us the following result for our correlation value:
+
+![](`r RandomSlopeModelRes1`){width=600}
+
+<br><br><br><br><br><br><br><br><br><br>
+
+
+```{r echo=FALSE, message=F, warning = F, warnings = F}
+MarginalModel1 <- here::here("presentations/9-24-Presentation/images",
+                                   "MarginalModel1.jpg")
+MarginalModel2 <- here::here("presentations/9-24-Presentation/images",
+                                   "MarginalModel2.jpg")
+MarginalModelCov <- here::here("presentations/9-24-Presentation/images",
+                                   "MarginalModelCov.jpg")
+
+```
+
+### The Marginal Model
+
+Let's revisit our method for finding the covariance matrix and see if we can get the same results without having to derive the complicated formulas from before.
+
+<br>
+
+One way we can do this is by assuming <b>no random effects</b> and that <b>the residuals of the samples from the same beach are not independent</b>:
+
+![](`r MarginalModel1`){width=500}
+
+<br><br>
+
+In removing the random effects, our new model becomes the regular linear regression model:
+
+![](`r MarginalModel2`){width=500}
+
+<br><br>
+
+From here we can then introduce the kind of depedence structure we would like:
+
+![](`r MarginalModelCov`){width=500}
+
+<br><br>
+
+The following R code is used to find the value of phi:
+
+```{r, echo=T}
+M.gls <- gls(Richness ~ NAP, method = "REML", correlation = corCompSymm(form = ~1 | fBeach),
+             data = RIKZ)
+
+summary(M.gls$modelStruct)
+
+# Residual standard error
+M.gls$residuals[1]
+```
+
+<br>
+
+Because this is the parameter estimate of the <b>correlation structure</b>, we use the formula for correlation above to calculate phi directly by multiplying `0.481` by `4.534`.
+
+<br>
+
+But how have we gone about approximating the values we want?
+
+<br><br><br><br><br><br><br><br><br><br>
+
+```{r echo=FALSE, message=F, warning = F, warnings = F}
+MLE1 <- here::here("presentations/9-24-Presentation/images",
+                                   "MLE1.jpg")
+MLE2 <- here::here("presentations/9-24-Presentation/images",
+                                   "MLE2.jpg")
+MLE3 <- here::here("presentations/9-24-Presentation/images",
+                                   "MLE3.jpg")
+MLE4 <- here::here("presentations/9-24-Presentation/images",
+                                   "MLE4.jpg")
+BlockDiagonalForm <- here::here("presentations/9-24-Presentation/images",
+                                   "BlockDiagonalForm.jpg")
+REML1 <- here::here("presentations/9-24-Presentation/images",
+                                   "REML1.jpg")
+REML2 <- here::here("presentations/9-24-Presentation/images",
+                                   "REML2.jpg")
+```
+
+### ML and REML
+
+We will go through the basic set up for how <b>Maximum Likelihood Estimation</b> is done.<br>
+Before we review some assumptions, note the fact that we'll assume each beach has only one sample for notational simplicity. (Later we will specify that all Y values will be incorporated into a single column vector):
+
+![](`r MLE1`){width=650}
+
+<br><br>
+
+Since all of the Yi's are independent, the joint probability is the following:
+
+![](`r MLE2`){width=650}
+
+<br><br>
+
+Because we know the observed values for Yi and Xi, we can consider this function as the <b>likelihood function</b> of the unknown parameters:
+
+![](`r MLE3`){width=650}
+
+<br><br>
+
+If we want to find the value for any of the parameters that maximizes the likelihood function, we do the following, with an example below.
+
+![](`r MLE4`){width=300}
+
+<br><br>
+
+```{r echo=FALSE, message=F, warning = F, warnings = F}
+library(colourpicker)
+fluidPage(
+fluidRow(
+    column(12,align="center",numericInput("C", "Beta1", value = -10, min = -10, max = 10))
+  )
+)
+```
+
+
+```{r echo=FALSE, message=F, warning = F, warnings = F}
+fluidPage(
+fluidRow(column(6,
+renderPlot({
+  
+  x <- y <- seq(-10, 10, length= 30)
+  f <- function(x,y){ z <- - x**2 - y**2 }
+  z <- outer(x,y,f)
+  plot <- persp(x, y, z, theta = 30, phi = 30, expand = 0.5, col = "lightblue",
+                      xlab = "Beta1", ylab = "Beta2", zlab = "L(Yi | Beta1, Beta2)",
+                main = "Likelihood Function of Beta1 and Beta2")
+  c = input$C
+  points (trans3d(x = c, y = 0, z = -c**2, pmat = plot), col = 2, pch = 19)
+  lines (trans3d(x = x, y = 0, z = (-2*c)*(x-c) - c**2, pmat = plot), col = 2)
+  
+  
+}, height=400)
+),
+column(6,
+renderPlot({
+  
+  c <- input$C
+  fun.1 <- function(x) -x^2
+  fun.2 <- function(x) (-2*c)*(x-c) - c**2
+  ggplot(data = data.frame(x = 0), mapping = aes(x = x)) + 
+    stat_function(fun = fun.1, color="blue") + xlim(-10,10) + ylim(-100,25) + 
+    geom_point(aes(x = c, y = fun.1(c)), color="red") + 
+    stat_function(fun = fun.2, color="red") + 
+    xlab("Beta1") + ylab("L(Yi | Beta1)") + ggtitle("Partial Derivative of Beta1") +
+    theme(plot.title = element_text(hjust = 0.5))
+
+
+  }, height=400)
+),
+
+column(12,
+renderText({
+  
+  c <- input$C
+  fun.2 <- function(x) (-2*c)
+  
+  print(paste("The slope (partial derivative of Beta1) at this point is:", fun.2(c)))
+
+})
+)
+)
+)
+```
+
+<br><br>
+
+In words, we treat all other parameters as constants and derive our formula to find the value for our parameter that has the highest likelihood.
+
+<br>
+
+<b>However</b>, a problem with this approach is that we are holding constant other parameters (namely, the mean) that are themselves estimates, meaning that our <b>Maximum Likelihood Estimator</b> is a <b>biased estimate</b>. We can reduce this bias by increasing our sample size, and may want to perform a log-likelihood test (which requires ML), but to find a better estimate of the covariance matrix we can use <b>REML</b>. Essentially, we are removing degrees of freedom in proportion to our fixed effects, and apply ML to our regression's least square residuals. 
+
+<br>
+
+Here, we use the stacking method mentioned before that treats all samples in one column, and the errors as a diagonal block matrix, and again adopt the marginal model:
+
+![](`r REML1`){width=550}
+
+<br><br>
+
+More specifically, the matrix A is orthogonal to matrix X, meaning that the X term in the model is completely removed, while A still modifies the covariance matrix V. <br>
+The covariance matrix V is of the form:
+
+![](`r BlockDiagonalForm`){width=250}
+
+where Ai corresponds to the covariance matrix of beach i.
+
+<br><br>
+
+Now, once we perform MLE on these random variables Yi, we will get <b>unbiased estimators for the parameters within V</b>. Let's see this in R code.
+
+```{r, echo=T}
+RIKZ$fExp <- RIKZ$Exposure
+RIKZ$fExp[RIKZ$Exposure == 8] <- 10
+RIKZ$fExp <- factor(RIKZ$fExp, levels = c(10,11))
+M0.ML <- lme(Richness ~ NAP, data = RIKZ, random = ~1 | fBeach, method = "ML")
+M0.REML <- lme(Richness ~ NAP, random = ~1 | fBeach, method = "REML", data = RIKZ)
+M1.ML <- lme(Richness ~ NAP + fExp, data = RIKZ, random = ~1 | fBeach, method = "ML")
+M1.REML <- lme(Richness ~ NAP + fExp, random = ~1 | fBeach, method = "REML", data = RIKZ)
+```
+
+<br><br>
+
+The book provides a summary of the differences between the models:
+
+![](`r REML2`){width=550}
+
+<br><br><br><br><br><br><br><br><br><br>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
