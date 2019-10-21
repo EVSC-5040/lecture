@@ -1,0 +1,211 @@
+---
+title: "DHARMa: residual diagnostics for GLM models"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### What is DHARMa?
+
+* DHARMa uses a simulation-based approach to create interpretable scaled (0-1) residuals for GLM(M)s. 
+
+#### Why is this important?
+
+* Residual plots that would be used for linear models are not useful for GLMs, as the **expected distribution of the data changes with fitted values**
+
+* When standard residual plots are used with GLMs, you may identify problems in the model fit even if the model is correctly specified
+
+#### Why should we be careful about jumping to conclusions about whether a model is over-dispersed?
+
+* For example, if I test and confirm the a GLM model is overdispersed, then my default behavior might be to modify the model to use a negative binomial or zero-inflated distribution.
+
+    * This is a problem because overdispersion may be due to missing predictors
+    * Overdispersion may vary across predictors (**heteroscedasticity**)
+    * If residuals are checked in a GLMM, they may only be looked at from the perspective of mixed effects, therefore ignoring the full model structure.
+
+#### A note on zero-inflated models
+
+* Zero-inflated models: Typically the assumption is that there are two data generating processes (one creating zeros); one of which may be modeled independently.
+
+    * Example: Biologists want to know how many fish are being caught by fishermen at a state park, but there is only data about visitor characteristics, and not about whether or not they went fishing. This leads to zero-inflated data, because the majority of zeros are due to people who didn't go fishing but were counted. 
+    
+#### How does DHARMa solve the problems of diagnosing residuals for GLMMs?
+
+* A simulation approach that transforms residuals to a scale of 0-1
+
+* The modeling process is as follows:
+
+    1. The fitted model is used to simulate data for each observation
+    
+    2. For each group of simulations, the empirical cumulative distribution function (ECDF) is calculated. The ECDF describes the probability of a simulated value given the predictors and observed value.
+    
+    3. The residual is defined as the value of the ECDF at the observed value, which is scaled between 0-1.
+    
+#### Why is this method effective?
+
+* If the model is correctly specified, the observed data should look as if they were created from the fitted model
+
+#### How do we know when the model is appropriate?
+
+* All values of the cumulative distribution should appear with equal probability. The distribution of the residuals should be **flat**, regardless of model structure.
+
+### Workflow
+
+#### Bring in data and fit model
+
+```{r}
+library(nlme)
+library(MASS)
+library(lme4)
+library(tidyverse)
+
+#data with buffer radius = 30
+load(here::here("data/found_buildings_dist_to_liq.rdata"))
+
+# Make column names easier more intuitive
+d <- found_buildings_liq %>% 
+  dplyr::rename(log_dist_traveled = ldistance, road_type = broad_class)
+
+#Fit Poisson models - doesn't tell you whether its overdispersed or not
+pois_mod <- glm(nips ~ n_buildings + road_type + offset(log_dist_traveled), data = d, family = poisson)
+summary(pois_mod)
+
+#Fit quasipoisson model - does tell you about overdispersion
+qp_mod <- glm(nips ~ n_buildings + road_type + offset(log_dist_traveled),
+              data = d, family = quasipoisson)
+summary(qp_mod)
+
+# The model is highly overdispersed (phi >> 1)
+
+#Let's expand the model to use a negative binomial distribution, which allows for the variance to be larger than the mean, and approximates a Poisson distribution when it is near the mean.
+
+mod <- glm.nb(nips ~ n_buildings + road_type + 
+                offset(log_dist_traveled),
+              data = d, link = "log")
+
+mod_dist <- glm.nb(nips ~ n_buildings + broad_class + 
+                   dist_to_liq +
+                   offset(ldistance), 
+                   data = found_buildings_liq, link = "log")
+AIC(mod, mod_dist)
+
+#The model without distance to liquor stores as a predictor has a lower AIC and is more simple, so we will use that one
+
+newdata <- data.frame(n_buildings = rep(seq(min(d$n_buildings), 
+                                            max(d$n_buildings),
+                                            length.out = 500),2),
+                      road_type = rep(c("Primary/secondary","Tertiary/residential"), 
+                                        each = 500),
+                      log_dist_traveled = log(166))
+
+model_fit <- broom::augment(mod, newdata = newdata) %>% 
+  mutate(up_ci = exp(.fitted + 1.96 * .se.fit),
+         low_ci = exp(.fitted - 1.96 * .se.fit),
+         fit = exp(.fitted))
+
+ggplot(data = model_fit) +
+  geom_line(aes(x = n_buildings, y = fit, color = road_type)) +
+  geom_ribbon(aes(x = n_buildings, ymax = up_ci, ymin = low_ci,
+                  fill = road_type), alpha = 0.1)
+```
+
+#### Model validation using DHARMa
+
+1. First, we simulate scaled residuals from the fitted model:
+
+```{r}
+library(DHARMa)
+scaled_sims <- simulateResiduals(fittedModel = mod, n = 500)
+```
+
+This step creates ECDFs for each observation of the response variable (`nips`) and returns the ECDF quantile value corresponding to the observed value.
+
+**Remember**, the expectation in well-fitting model residuals is that they are uniformly distributed
+
+2. Visualize the scaled residuals:
+
+```{r}
+plot(scaled_sims)
+```
+
+Lines in residual ~ fitted plot should be straight and at 0.25, 0.5, and 0.75. There should be uniformity in the y direction.
+
+3. Plot against predictors
+
+```{r}
+plotResiduals(d$n_buildings,scaled_sims$scaledResiduals)
+```
+
+```{r}
+plotResiduals(d$road_type,scaled_sims$scaledResiduals)
+```
+
+4. Formal tests for goodness of fit
+
+`testUniformity`: Performs a Kolmolgorov-Smirnov test, where $H_0$ is that the residuals are uniform. Hence, if P < 0.05, we reject the null that the data were generated from a uniform distribution. 
+
+`testOutliers`: Simulated values that are larger or smaller than any observed values are called outliers in the `DHARMa` package (i.e. top or bottom of ECDF). The expected number of outliers is binomially distributed, allowing for calculation of P values. If the expected number of outliers == to the observed, then P will be large.
+
+`testDispersion`: Tests for over/underdispersion in the model by comparing the dispersion of the simulated residuals to the observed residuals
+
+`testResiduals` performs all three
+
+`testZeroInflation`: Compares the distribution of expected zeros in the data against the observed zeros
+
+```{r}
+testResiduals(scaled_sims)
+testZeroInflation(scaled_sims)
+```
+
+#### Interpreting residuals and recognizing problems
+
+* We can still adhere to the idea that patterns in the residuals are bad
+
+**Dispersion issues**
+
+* Occurs when residuals are larger or smaller than the expected value
+
+**Overdispersion**
+
+```{r}
+testData = createData(sampleSize = 500, overdispersion = 2, family = poisson())
+fittedModel <- glmer(observedResponse ~ Environment1 + (1|group) , family = "poisson", data = testData)
+
+simulationOutput <- simulateResiduals(fittedModel = fittedModel)
+testResiduals(simulationOutput)
+plot(simulationOutput)
+```
+
+**Underdispersion**
+
+```{r}
+testData = createData(sampleSize = 500, intercept=0, fixedEffects = 2,
+                      overdispersion = 0, family = poisson(), roundPoissonVariance = 0.001, randomEffectVariance = 0)
+fittedModel <- glmer(observedResponse ~ Environment1 + (1|group) , family = "poisson", data = testData)
+
+summary(fittedModel)
+
+simulationOutput <- simulateResiduals(fittedModel = fittedModel)
+testResiduals(simulationOutput)
+plot(simulationOutput)
+```
+
+#### Adding complexity to the orginial model
+
+```{r}
+library(lme4)
+d$date <- factor(d$date)
+mixed.nb <- 
+  glmer.nb(nips ~ n_buildings + road_type + (1|date) +
+                offset(log_dist_traveled),
+              data = d)
+
+sim_mixed_mod <- simulateResiduals(fittedModel = mixed.nb)
+plot(sim_mixed_mod)
+plot(scaled_sims)
+
+AIC(mixed.nb, mod)
+```
+
