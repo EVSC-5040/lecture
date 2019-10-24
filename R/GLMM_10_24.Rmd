@@ -1,0 +1,278 @@
+---
+title: ""
+runtime: shiny
+output: html_document
+font: Helvetica
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(magrittr)
+library(lattice)
+library(tidyverse)
+library(nlme)
+library(broom.mixed)
+library(ggplot2)
+library(lme4)
+library(glmmADMB) 
+library(zoo)
+KW <- read.table(here::here("data/pollen.txt"), header = T)
+```
+
+<center>
+
+## GLMM {.tabset .tabset-fade}
+
+### Honeybees and Dandelions
+
+```{r echo=FALSE, message=F, warning = F, warnings = F}
+head(KW)
+```
+
+```{r echo=FALSE, message=F, warning = F, warnings = F}
+KW$fHive <- as.factor(KW$Hive)
+ggplot(KW) + geom_line(aes(x=Time, y=Dandelion, color=fHive)) + facet_grid(~ Treatment) +
+  scale_colour_manual(values = 
+    c("#0F2B5B", "#005B99", "#0089AF", "#00A0C4", "#51BFE2", 
+      "#0B0630", "#251463", "#36116A", "#6B1FB1", "#8B24CC", 
+      "#00563F", "#006B3F", "#3D8E33", "#339E35", "#60C659")) +
+        theme(legend.position = "none") + xlab("Day")
+```
+
+In the process of collecting nectar for honey production, honeybees are valuable pollinators of agricultural crops. Among those crops, the kiwifruit (Actinidia spp.) has received special attention, as it can be grown in most temperate climates and produces large quantities of fruit per hectare. <br><br> 
+Kiwifruit of the species Actinidia chilensis is produced across Argentina, especially in southwest Buenos Aires Province. While the role of the honeybee as a pollinator of Actinidia and of wild flora has been studied elsewhere, no baseline data exist for this extensive area of Buenos Aires Province. <br><br>
+Individual kiwifruit vines produce either male or female flowers, which means that plants are not self-pollinating, and pollen is brought to female flowers by wind and/or insects. It has been documented that the production of kiwifruit positively correlates with the number of honeybee hives placed in kiwifruit orchards (Free, 1993), Thus, growers distribute honeybee hives throughout plantations to facilitate the pollination process.
+<br><br>
+Kiwifruit blossoms produce no nectar. In flora nearby coincident flowering of other flora nearby may attract pollinators away from kiwi flowers. This is true in the case of dandelion (Taraxacum officinale), which is, abundant in southern Buenos Aires Province. Therefore, supplemental feeding of colonies with sugar syrup has been widely recommended to enhance the attractiveness of kiwi flowers to honeybees.
+<br><br>
+To evaluate whether supplemental feeding affects the amount of kiwi and dandelion pollen foraged by honeybees, colonies were provided with either protein or sugar syrup. Five hives were used for each experimental treatment, with a further five unsupplemented hives as controls. Pollen traps were placed at the entrance of the hives. The trial took place over four consecutive days at kiwi peak bloom. Each morning the pollen was removed from the traps, and the number of grains was counted.
+
+<br><br><br><br><br><br><br><br><br><br><br><br><br><br>
+
+### Initial Poisson Model
+
+<br><br>
+We expect results from the same hive to be correlated, so we will incorporate a random effect.
+<br><br>
+```{r echo=FALSE, message=F, warning = F, warnings = F}
+M1 <- glmer(Dandelion ~ Time * Treatment + (1|fHive), data = KW, family = poisson)
+summary(M1)
+```
+<br><br>
+We want to test whether our interaction term is significant.
+<br><br>
+```{r echo=T, warning = F, warnings = F}
+drop1(M1, test = "Chi")
+
+# Manually we can do the following
+
+M1A <- glmer(Dandelion ~ Time + Treatment + (1|fHive), data = KW, family = poisson)
+TestStatistic <- 2*(logLik(M1) - logLik(M1A))
+TestStatistic
+dchisq(TestStatistic, 2)
+```
+
+```{r echo=T, warning = F, warnings = F}
+E1 <- resid(M1, type = "pearson") 
+N <- nrow(KW) 
+p <- length(fixef(M1)) + 1 
+Overdispersion <- sum(E1^2) / (N - p) 
+Overdispersion
+
+# We therefore conclude that there is overdispersion. We try to explain this overdispersion before resorting to using negative binomial regression.
+```
+
+```{r echo=T, warning = F, warnings = F}
+F1 <- fitted(M1)
+
+ggplot() + xlab("Fitted values") + ylab("Pearson residuals") + geom_hline(aes(yintercept = 0),
+  linetype="dashed", color = "blue") + geom_point(aes(x = F1, y = E1))
+
+ggplot() + xlab("Time") + ylab("Pearson residuals") + geom_hline(aes(yintercept = 0),
+  linetype="dashed", color = "blue") + geom_point(aes(x = KW$Time, y = E1))
+
+ggplot() + xlab("Treatment") + ylab("Pearson residuals") + geom_boxplot(aes(x = KW$Treatment, 
+  y = E1))  + geom_hline(aes(yintercept = 0), linetype="dashed", color = "blue") 
+
+ggplot() + xlab("Hive") + ylab("Pearson residuals") + geom_boxplot(aes(x = KW$fHive, y = E1)) +
+  geom_hline(aes(yintercept = 0), linetype="dashed", color = "blue")
+```
+<br><br>
+There is no clear non-linear pattern or outliers present, so we'll have to resort to a negative binomial model.
+<br><br><br><br><br><br><br><br><br><br>
+
+### Negative Binomial Model
+
+`install.packages("R2admb")` <br>
+`install.packages("glmmADMB",` <br>
+    `repos=c("http://glmmadmb.r-forge.r-project.org/repos",` <br>
+            `getOption("repos")),` <br>
+    `type="source")` <br>
+
+<br>
+```{r echo=T, warning = F, warnings = F}
+M2 <- glmmadmb(Dandelion ~Time* Treatment, random=~ 1|fHive, family= "nbinom", data= KW)
+
+E2 <- resid(M2, type= "pearson")  
+p <- 6 + 1 + 1 # Number of betas + k + sigma
+Overdispersion2 <- sum(E2^2) / (N - p)
+Overdispersion2
+
+# This is a low enough level of underdispersion for us to accept the model
+```
+
+```{r echo=T, warning = F, warnings = F}
+summary(M2)
+
+# We can see that the parameters are no longer significant at the 5% level, showing how overdispersion in the Poisson model affected our p-values.
+
+# 0.9922 is the standard error for the random intercept, which we will use to graph results.
+```
+
+```{r echo=T, warning = F, warnings = F}
+F2 <- fitted(M2)
+
+ggplot() + xlab("Fitted values") + ylab("Pearson residuals") + geom_hline(aes(yintercept = 0),
+  linetype="dashed", color = "blue") + geom_point(aes(x = F2, y = E2))
+
+ggplot() + xlab("Time") + ylab("Pearson residuals") + geom_hline(aes(yintercept = 0),
+  linetype="dashed", color = "blue") + geom_point(aes(x = KW$Time, y = E2))
+
+ggplot() + xlab("Treatment") + ylab("Pearson residuals") + geom_boxplot(aes(x = KW$Treatment, 
+  y = E2))  + geom_hline(aes(yintercept = 0), linetype="dashed", color = "blue") 
+
+ggplot() + xlab("Hive") + ylab("Pearson residuals") + geom_boxplot(aes(x = KW$fHive, y = E2)) +
+  geom_hline(aes(yintercept = 0), linetype="dashed", color = "blue")
+# We check the Pearson residuals against fitted values again for model validation
+```
+
+<br><br><br><br><br><br><br><br><br><br>
+
+### Plotting Results
+
+```{r echo=T, warning = F, warnings = F}
+range1 <- data.frame(
+  Time = rep(seq(from = 1, to = 4, length.out = 100), 5),
+  fHive = rep(1:5, each = 400),
+  Treatment = rep("Syrup", 2000))
+range2 <- data.frame(
+  Time = rep(seq(from = 1, to = 4, length.out = 100), 5),
+  fHive = rep(6:10, each = 400),
+  Treatment = rep("Protein", 2000))
+range3 <- data.frame(
+  Time = rep(seq(from = 1, to = 4, length.out = 100), 5),
+  fHive = rep(11:15, each = 400),
+  Treatment = rep("Control", 2000))
+range <- rbind(range3, range2, range1)
+range <- cbind(range, predict(M2, range, type = "link", se.fit=TRUE))
+
+for (i in 1:60)
+{
+  ttime <- KW[i,"Time"]
+  thive <- KW[i,"fHive"]
+  ttreat <- KW[i,"Treatment"]
+  range[which(range$Time == ttime &
+              range$fHive == thive &
+              range$Treatment == ttreat),"Dandelion"] <- KW[i,"Dandelion"]
+}
+
+range$lower <- exp(range$fit - 0.67449*0.9922) # <- from the summary table
+range$upper <- exp(range$fit + 0.67449*0.9922)
+range$fit <- exp(range$fit)
+
+range$fHive <- as.factor(range$fHive)
+
+ggplot(range)+
+  geom_ribbon(aes(x = Time, ymin = lower, ymax = upper), alpha = .25) +
+  geom_point(aes(x = Time, y = Dandelion, color = fHive)) +
+  scale_colour_manual(values = 
+    c("#0F2B5B", "#005B99", "#0089AF", "#00A0C4", "#51BFE2", 
+      "#0B0630", "#251463", "#36116A", "#6B1FB1", "#8B24CC", 
+      "#00563F", "#006B3F", "#3D8E33", "#339E35", "#60C659")) + 
+  geom_line(aes(x=Time, y=fit), color = "black") +
+  facet_grid(~ Treatment) + theme(legend.position = "none") + ylab("Dandelion")
+  
+# Using a 50% band since the 95% band is too wide
+
+```
+
+```{r echo=T, warning = F, warnings = F}
+range1 <- data.frame(
+  Time = rep(seq(from = 1, to = 4, length.out = 100), 5),
+  fHive = rep(1:5, each = 400),
+  Treatment = rep("Syrup", 2000))
+range2 <- data.frame(
+  Time = rep(seq(from = 1, to = 4, length.out = 100), 5),
+  fHive = rep(6:10, each = 400),
+  Treatment = rep("Protein", 2000))
+range3 <- data.frame(
+  Time = rep(seq(from = 1, to = 4, length.out = 100), 5),
+  fHive = rep(11:15, each = 400),
+  Treatment = rep("Control", 2000))
+range <- rbind(range3, range2, range1)
+
+
+ranint <- data.frame(ranef(M2))
+coeffs <- data.frame(t(coef(M2)))
+
+for (i in 1:nrow(range))
+{
+  range[i, "fit"] <- 3.49428857 + ranint[range[i, "fHive"],] + coeffs$Time*range[i, "Time"] + 
+    coeffs$TreatmentProtein*(range[i, "Treatment"] == "Protein")*1 + 
+    coeffs$TreatmentSyrup*(range[i, "Treatment"] == "Syrup")*1 +
+    coeffs$Time.TreatmentProtein*(range[i, "Treatment"] == "Protein")*1*range[i, "Time"] +
+    coeffs$Time.TreatmentSyrup*(range[i, "Treatment"] == "Syrup")*1*range[i, "Time"]
+}
+
+range$fit <- exp(range$fit)
+
+for (i in 1:60)
+{
+  ttime <- KW[i,"Time"]
+  thive <- KW[i,"fHive"]
+  ttreat <- KW[i,"Treatment"]
+  range[which(range$Time == ttime &
+              range$fHive == thive &
+              range$Treatment == ttreat),"Dandelion"] <- KW[i,"Dandelion"]
+}
+
+range$fHive <- as.factor(range$fHive)
+
+ggplot(range) +
+  geom_point(aes(x = Time, y = Dandelion, color = fHive)) + 
+  geom_point(aes(x=Time, y=fit, color=fHive), size=0.4) +
+  scale_color_manual(values = 
+    c("#0F2B5B", "#005B99", "#0089AF", "#00A0C4", "#51BFE2", 
+      "#0B0630", "#251463", "#36116A", "#6B1FB1", "#8B24CC", 
+      "#00563F", "#006B3F", "#3D8E33", "#339E35", "#60C659")) +
+  facet_grid(~ Treatment) + ylab("Dandelion")
+
+
+```
+
+```{r echo=T, warning = F, warnings = F}
+rangePred <- data.frame(predict(M2, range, type = "link", se.fit=TRUE))
+colnames(rangePred) <- c("modelfit", "modelse")
+range <- cbind(range, rangePred)
+
+range$lower <- exp(range$modelfit - 0.67449*0.9922) # <- from the summary table
+range$upper <- exp(range$modelfit + 0.67449*0.9922)
+range$modelfit <- exp(range$modelfit)
+
+ggplot(range) +
+  geom_point(aes(x = Time, y = Dandelion, color = fHive)) + 
+  geom_point(aes(x=Time, y=fit, color=fHive), size=0.5) +
+  scale_color_manual(values = 
+    c("#0F2B5B", "#005B99", "#0089AF", "#00A0C4", "#51BFE2", 
+      "#0B0630", "#251463", "#36116A", "#6B1FB1", "#8B24CC", 
+      "#00563F", "#006B3F", "#3D8E33", "#339E35", "#60C659")) +
+  geom_ribbon(aes(x = Time, ymin = lower, ymax = upper), alpha = .25) +
+  geom_line(aes(x=Time, y=modelfit), color = "red", size = 1.2) +
+  facet_grid(~ Treatment) + theme(legend.position = "none") + ylab("Dandelion")
+
+```
+
+
+
+
+
